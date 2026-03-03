@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#2d1b4e">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="manifest" href="manifest.json">
+    <title>Memory for Jenny</title>
+    <style>
+        html, body { 
+            margin: 0; padding: 0; 
+            height: 100%; width: 100%; 
+            overflow: hidden; 
+            background: #2d1b4e;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, sans-serif; 
+            display: flex; flex-direction: column;
+            touch-action: manipulation;
+        }
+        .header { 
+            padding: 12px 15px; 
+            background: rgba(0,0,0,0.3); 
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .header h1 { font-size: 1.3rem; color: #ffd700; margin: 0; }
+        .stats { font-size: 0.85rem; color: #fff; }
+        .stats span { background: rgba(255,255,255,0.2); padding: 4px 10px; border-radius: 12px; margin-left: 8px; }
+        
+        .grid { 
+            flex: 1; 
+            display: grid; 
+            grid-template-columns: repeat(4, 1fr); 
+            gap: 6px; 
+            padding: 10px;
+            align-content: center;
+            max-width: 500px;
+            margin: 0 auto;
+            width: 100%;
+        }
+        .card {
+            aspect-ratio: 3/4;
+            background: #4a3b6e;
+            border-radius: 8px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: clamp(1.5rem, 5vw, 2.2rem);
+            box-shadow: 0 3px 6px rgba(0,0,0,0.3);
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+            transition: transform 0.15s;
+        }
+        .card:active { transform: scale(0.95); }
+        .card.flipped { background: white; }
+        .card.matched { background: #2ecc71; }
+        
+        .install-btn {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #ffd700;
+            color: #111;
+            border: none;
+            padding: 14px 28px;
+            font-size: 1rem;
+            border-radius: 30px;
+            cursor: pointer;
+            font-weight: bold;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+            display: none;
+            z-index: 100;
+        }
+        .install-btn.show { display: block; }
+        
+        .love { text-align: center; color: #ff9eb5; font-size: 0.8rem; padding: 10px; }
+        
+        .win { 
+            position: fixed; inset: 0; 
+            background: rgba(0,0,0,0.95); 
+            display: none; 
+            flex-direction: column; 
+            align-items: center; justify-content: center; 
+            z-index: 200;
+        }
+        .win.show { display: flex; }
+        .win h1 { font-size: 2.5rem; color: #ffd700; margin: 0 0 20px 0; }
+        .win p { font-size: 1.2rem; margin: 0 0 25px 0; }
+        .win .btn { 
+            background: #ffd700; color: #111; border: none; 
+            padding: 14px 32px; font-size: 1.1rem; 
+            border-radius: 25px; cursor: pointer; font-weight: bold; 
+        }
+        
+        @media (min-width: 600px) {
+            .grid { gap: 10px; padding: 20px; }
+            .card { border-radius: 10px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>♠ Memory</h1>
+        <div class="stats">
+            Moves: <span id="moves">0</span>
+            Time: <span id="time">0</span>
+        </div>
+    </div>
+    <div class="grid" id="grid"></div>
+    <button class="install-btn" id="installBtn">📱 Install App</button>
+    <div class="love">Made with ❤️ for Jenny</div>
+    <div class="win" id="win">
+        <h1>🎉 You Win!</h1>
+        <p>Moves: <span id="fm">0</span> | Time: <span id="ft">0</span>s</p>
+        <button class="btn" onclick="newGame()">Play Again</button>
+    </div>
+    
+    <script>
+        const emojis = ["🌸","🌺","🌻","🌷","🌹","🍀","🍁","🍎"];
+        let cards = [], flipped = [], matched = 0, moves = 0, t = 0, timer = null, lock = false;
+        
+        let deferredPrompt;
+        const installBtn = document.getElementById('installBtn');
+        
+        window.addEventListener('beforeinstallprompt', e => {
+            e.preventDefault();
+            deferredPrompt = e;
+            installBtn.classList.add('show');
+        });
+        
+        installBtn.onclick = async () => {
+            if (deferredPrompt) {
+                deferredPrompt.prompt();
+                await deferredPrompt.userChoice;
+                deferredPrompt = null;
+                installBtn.classList.remove('show');
+            }
+        };
+        
+        function shuffle(a) {
+            for (let i = a.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [a[i], a[j]] = [a[j], a[i]];
+            }
+            return a;
+        }
+        
+        function newGame() {
+            cards = shuffle([...emojis, ...emojis]);
+            flipped = [];
+            matched = 0;
+            moves = 0;
+            t = 0;
+            lock = false;
+            clearInterval(timer);
+            timer = setInterval(() => {
+                t++;
+                document.getElementById('time').innerText = t;
+            }, 1000);
+            document.getElementById('moves').innerText = 0;
+            document.getElementById('time').innerText = 0;
+            document.getElementById('win').classList.remove('show');
+            render();
+        }
+        
+        function render() {
+            const g = document.getElementById('grid');
+            g.innerHTML = cards.map((c, i) => 
+                '<div class="card" data-i="' + i + '" onclick="flip(' + i + ')">' + c + '</div>'
+            ).join('');
+        }
+        
+        function flip(i) {
+            if (lock || flipped.includes(i) || matched >= 16) return;
+            const el = document.querySelector('[data-i="' + i + '"]');
+            el.classList.add('flipped');
+            flipped.push(i);
+            if (flipped.length === 2) {
+                moves++;
+                document.getElementById('moves').innerText = moves;
+                lock = true;
+                if (cards[flipped[0]] === cards[flipped[1]]) {
+                    matched += 2;
+                    setTimeout(() => {
+                        flipped.forEach(fi => document.querySelector('[data-i="' + fi + '"]').classList.add('matched'));
+                        flipped = [];
+                        lock = false;
+                        if (matched >= 16) {
+                            clearInterval(timer);
+                            document.getElementById('fm').innerText = moves;
+                            document.getElementById('ft').innerText = t;
+                            document.getElementById('win').classList.add('show');
+                        }
+                    }, 300);
+                } else {
+                    setTimeout(() => {
+                        flipped.forEach(fi => document.querySelector('[data-i="' + fi + '"]').classList.remove('flipped'));
+                        flipped = [];
+                        lock = false;
+                    }, 700);
+                }
+            }
+        }
+        
+        newGame();
+    <\/script>
+</body>
+</html>
