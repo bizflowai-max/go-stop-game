@@ -1,0 +1,640 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#2d5a3d">
+    <meta name="description" content="고스톱 - 한국 카드 게임">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="고스톱">
+    <link rel="manifest" href="manifest.json">
+    <title>고스톱 - Go Stop</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            touch-action: manipulation;
+        }
+        
+        :root {
+            --bg-green: #2d5a3d;
+            --card-width: 55px;
+            --card-height: 78px;
+            --gold: #ffd700;
+        }
+        
+        body {
+            font-family: 'Noto Sans KR', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-green);
+            background-image: 
+                radial-gradient(circle at 20% 80%, rgba(255,255,255,0.1) 0%, transparent 50%),
+                radial-gradient(circle at 80% 20%, rgba(255,255,255,0.1) 0%, transparent 50%);
+            min-height: 100vh;
+            color: white;
+            overflow: hidden;
+            -webkit-tap-highlight-color: transparent;
+        }
+        
+        .game-container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            max-width: 500px;
+            margin: 0 auto;
+            padding: 8px;
+        }
+        
+        .header {
+            text-align: center;
+            padding: 12px;
+            background: rgba(0,0,0,0.3);
+            border-radius: 12px;
+            margin-bottom: 8px;
+        }
+        
+        .header h1 {
+            font-size: 1.4rem;
+            color: var(--gold);
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+        }
+        
+        .love-message {
+            font-size: 0.8rem;
+            color: #ffb6c1;
+            margin-top: 4px;
+        }
+        
+        .score-board {
+            display: flex;
+            justify-content: space-around;
+            margin-top: 8px;
+        }
+        
+        .player-score {
+            background: rgba(0,0,0,0.4);
+            padding: 6px 12px;
+            border-radius: 15px;
+            font-size: 0.85rem;
+            transition: all 0.3s ease;
+        }
+        
+        .player-score.active {
+            background: var(--gold);
+            color: #1a1a1a;
+            font-weight: bold;
+            transform: scale(1.05);
+        }
+        
+        .opponent-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100px;
+        }
+        
+        .opponent-label {
+            font-size: 0.8rem;
+            margin-bottom: 5px;
+            opacity: 0.8;
+        }
+        
+        .opponent-cards {
+            display: flex;
+            gap: 3px;
+            flex-wrap: wrap;
+            justify-content: center;
+            max-width: 280px;
+        }
+        
+        .table-area {
+            flex: 2;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .table-cards {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+            justify-content: center;
+            max-width: 320px;
+            min-height: 90px;
+            padding: 15px;
+            background: rgba(0,0,0,0.2);
+            border-radius: 12px;
+            border: 2px solid rgba(255,255,255,0.15);
+        }
+        
+        .deck-area {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+        
+        .deck {
+            width: var(--card-width);
+            height: var(--card-height);
+            background: linear-gradient(135deg, #8B0000 0%, #660000 100%);
+            border-radius: 6px;
+            border: 2px solid var(--gold);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            box-shadow: 2px 2px 8px rgba(0,0,0,0.4);
+        }
+        
+        .deck::after {
+            content: '🎴';
+            font-size: 1.3rem;
+        }
+        
+        .deck-count {
+            position: absolute;
+            bottom: -22px;
+            font-size: 0.75rem;
+            white-space: nowrap;
+            color: rgba(255,255,255,0.8);
+        }
+        
+        .player-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-end;
+            padding-bottom: 8px;
+        }
+        
+        .hand {
+            display: flex;
+            gap: 3px;
+            flex-wrap: wrap;
+            justify-content: center;
+            max-width: 380px;
+        }
+        
+        .card {
+            width: var(--card-width);
+            height: var(--card-height);
+            background: white;
+            border-radius: 5px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: transform 0.15s ease, box-shadow 0.15s ease;
+            box-shadow: 2px 2px 5px rgba(0,0,0,0.3);
+            user-select: none;
+            -webkit-user-select: none;
+            position: relative;
+        }
+        
+        .card:hover {
+            transform: translateY(-5px);
+        }
+        
+        .card:active {
+            transform: scale(0.95);
+        }
+        
+        .card.selected {
+            transform: translateY(-15px);
+            box-shadow: 0 0 15px var(--gold), 0 5px 15px rgba(0,0,0,0.3);
+            border: 2px solid var(--gold);
+        }
+        
+        .card.red { color: #c41e3a; }
+        .card.blue { color: #1a1a8a; }
+        
+        .card .suit { font-size: 1.3rem; line-height: 1; }
+        .card .rank { font-size: 0.9rem; font-weight: bold; }
+        
+        .card-back {
+            background: linear-gradient(135deg, #8B0000 0%, #660000 100%);
+            border: 2px solid var(--gold);
+        }
+        
+        .card-back::before {
+            content: '♠';
+            color: rgba(255,215,0,0.25);
+            font-size: 1.8rem;
+        }
+        
+        .captured-cards {
+            display: flex;
+            gap: 2px;
+            flex-wrap: wrap;
+            justify-content: center;
+            max-width: 180px;
+            min-height: 30px;
+            margin-top: 4px;
+        }
+        
+        .captured-card {
+            width: 22px;
+            height: 30px;
+            background: rgba(255,255,255,0.15);
+            border-radius: 3px;
+            font-size: 0.55rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .player-label {
+            font-size: 0.8rem;
+            margin-top: 6px;
+            opacity: 0.8;
+        }
+        
+        .message {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(0.9);
+            background: rgba(0,0,0,0.95);
+            padding: 25px 35px;
+            border-radius: 16px;
+            font-size: 1.2rem;
+            text-align: center;
+            z-index: 100;
+            display: none;
+            animation: popIn 0.25s ease;
+            border: 2px solid var(--gold);
+        }
+        
+        @keyframes popIn {
+            from { transform: translate(-50%, -50%) scale(0.8); opacity: 0; }
+            to { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+        }
+        
+        .message.show { display: block; }
+        
+        .btn {
+            background: var(--gold);
+            color: #1a1a1a;
+            border: none;
+            padding: 10px 25px;
+            font-size: 0.95rem;
+            border-radius: 20px;
+            cursor: pointer;
+            margin-top: 12px;
+            font-weight: bold;
+            transition: transform 0.1s;
+        }
+        
+        .btn:active { transform: scale(0.95); }
+        
+        .game-over {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.95);
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 200;
+        }
+        
+        .game-over.show { display: flex; }
+        
+        .game-over h2 {
+            font-size: 1.8rem;
+            color: var(--gold);
+            margin-bottom: 15px;
+        }
+        
+        .love-hearts {
+            font-size: 1.1rem;
+            margin-bottom: 15px;
+        }
+        
+        .final-score {
+            font-size: 1.1rem;
+            margin-bottom: 25px;
+            text-align: center;
+            line-height: 1.8;
+        }
+        
+        /* Install Banner */
+        .install-banner {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: linear-gradient(to top, rgba(0,0,0,0.9), transparent);
+            padding: 20px;
+            display: none;
+            justify-content: center;
+            align-items: center;
+            gap: 15px;
+            z-index: 300;
+            animation: slideUp 0.3s ease;
+        }
+        
+        @keyframes slideUp {
+            from { transform: translateY(100%); }
+            to { transform: translateY(0); }
+        }
+        
+        .install-banner.show { display: flex; }
+        
+        .install-banner p {
+            font-size: 0.9rem;
+        }
+        
+        .install-btn {
+            background: var(--gold);
+            color: #1a1a1a;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        
+        @media (min-width: 600px) {
+            :root {
+                --card-width: 65px;
+                --card-height: 92px;
+            }
+            .card .suit { font-size: 1.6rem; }
+            .card .rank { font-size: 1.1rem; }
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <div class="header">
+            <h1>🎴 고스톱</h1>
+            <div class="love-message">Mike ❤️ Jenny</div>
+            <div class="score-board">
+                <div class="player-score active" id="playerScore">나: 0</div>
+                <div class="player-score" id="opponentScore">상대: 0</div>
+            </div>
+        </div>
+        
+        <div class="opponent-area">
+            <div class="opponent-label">🤖 컴퓨터</div>
+            <div class="opponent-cards" id="opponentHand"></div>
+            <div class="captured-cards" id="opponentCaptured"></div>
+        </div>
+        
+        <div class="table-area">
+            <div class="table-cards" id="tableCards"></div>
+            <div class="deck-area">
+                <div class="deck">
+                    <span class="deck-count" id="deckCount">48장</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="player-area">
+            <div class="captured-cards" id="playerCaptured"></div>
+            <div class="hand" id="playerHand"></div>
+            <div class="player-label">👤 나</div>
+        </div>
+    </div>
+    
+    <div class="message" id="message">
+        <div id="messageText"></div>
+        <button class="btn" onclick="closeMessage()">확인</button>
+    </div>
+    
+    <div class="game-over" id="gameOver">
+        <h2>🎉 게임 종료!</h2>
+        <div class="love-hearts">Mike ❤️ Jenny</div>
+        <div class="final-score" id="finalScore"></div>
+        <button class="btn" onclick="restartGame()">다시하기</button>
+    </div>
+    
+    <!-- Install Banner -->
+    <div class="install-banner" id="installBanner">
+        <span>📱 앱으로 설치하려면:</span>
+        <button class="install-btn" id="installBtn">설치하기</button>
+    </div>
+
+    <script>
+        // Go Stop Game
+        const SUITS = ['🌸', '🎋', '🌑', '⭐'];
+        const RANKS = ['1','2','3','4','5','6','7','8','9','10','11','12'];
+        
+        let deck = [], playerHand = [], opponentHand = [];
+        let tableCards = [], playerCaptured = [], opponentCaptured = [];
+        let playerScore = 0, opponentScore = 0;
+        let isPlayerTurn = true, selectedCardIndex = null;
+        
+        // PWA Install
+        let deferredPrompt;
+        const installBanner = document.getElementById('installBanner');
+        const installBtn = document.getElementById('installBtn');
+        
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            setTimeout(() => installBanner.classList.add('show'), 2000);
+        });
+        
+        installBtn.addEventListener('click', async () => {
+            if (!deferredPrompt) return;
+            deferredPrompt.prompt();
+            const { outcome } = await deferredPrompt.userChoice;
+            deferredPrompt = null;
+            installBanner.classList.remove('show');
+        });
+        
+        window.addEventListener('appinstalled', () => {
+            installBanner.classList.remove('show');
+        });
+        
+        function createDeck() {
+            deck = []; let cardId = 0;
+            for (let suit of SUITS) {
+                for (let rank of RANKS) {
+                    for (let i = 0; i < 2; i++) {
+                        deck.push({
+                            id: cardId++, suit, rank,
+                            value: parseInt(rank),
+                            color: (suit === '🌸' || suit === '⭐') ? 'red' : 'blue'
+                        });
+                    }
+                }
+            }
+            shuffleDeck();
+        }
+        
+        function shuffleDeck() {
+            for (let i = deck.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [deck[i], deck[j]] = [deck[j], deck[i]];
+            }
+        }
+        
+        function dealCards() {
+            playerHand = deck.splice(0, 7);
+            opponentHand = deck.splice(0, 7);
+            tableCards = deck.splice(0, 10);
+        }
+        
+        function renderGame() {
+            document.getElementById('playerHand').innerHTML = playerHand.map((card, idx) => 
+                `<div class="card ${card.color} ${idx === selectedCardIndex ? 'selected' : ''}" 
+                     onclick="selectCard(${idx})">${card.suit}<span class="rank">${card.value}</span></div>`
+            ).join('');
+            
+            document.getElementById('tableCards').innerHTML = tableCards.map((card, idx) => 
+                `<div class="card ${card.color}" onclick="playToTable(${idx})">${card.suit}<span class="rank">${card.value}</span></div>`
+            ).join('');
+            
+            document.getElementById('opponentHand').innerHTML = 
+                opponentHand.map(() => `<div class="card card-back"></div>`).join('');
+            
+            document.getElementById('playerCaptured').innerHTML = 
+                playerCaptured.map(c => `<div class="captured-card">${c.suit}</div>`).join('');
+            document.getElementById('opponentCaptured').innerHTML = 
+                opponentCaptured.map(c => `<div class="captured-card">${c.suit}</div>`).join('');
+            
+            document.getElementById('playerScore').textContent = `나: ${playerScore}`;
+            document.getElementById('opponentScore').textContent = `상대: ${opponentScore}`;
+            document.getElementById('playerScore').classList.toggle('active', isPlayerTurn);
+            document.getElementById('opponentScore').classList.toggle('active', !isPlayerTurn);
+            document.getElementById('deckCount').textContent = `${deck.length}장`;
+        }
+        
+        function selectCard(index) {
+            if (!isPlayerTurn) return;
+            selectedCardIndex = index;
+            renderGame();
+        }
+        
+        function findMatchingCards(card) {
+            return tableCards.filter(c => c.value === card.value);
+        }
+        
+        function playToTable(tableIndex) {
+            if (!isPlayerTurn || selectedCardIndex === null) return;
+            
+            const playedCard = playerHand[selectedCardIndex];
+            const matchingCards = findMatchingCards(playedCard);
+            const clickedCard = tableCards[tableIndex];
+            
+            if (matchingCards.length === 0) {
+                tableCards.push(playedCard);
+                playerHand.splice(selectedCardIndex, 1);
+            } else if (matchingCards.includes(clickedCard)) {
+                playerCaptured.push(playedCard, clickedCard);
+                tableCards = tableCards.filter(c => c !== clickedCard);
+                playerHand.splice(selectedCardIndex, 1);
+                const additional = tableCards.filter(c => c.value === playedCard.value);
+                if (additional.length > 0) {
+                    playerCaptured.push(...additional);
+                    tableCards = tableCards.filter(c => c.value !== playedCard.value);
+                }
+            } else {
+                playerCaptured.push(playedCard, ...matchingCards);
+                tableCards = tableCards.filter(c => c.value !== playedCard.value);
+                playerHand.splice(selectedCardIndex, 1);
+            }
+            
+            selectedCardIndex = null;
+            drawCard(playerHand);
+            calculateScore();
+            renderGame();
+            
+            if (playerHand.length === 0 && deck.length === 0) {
+                endGame();
+                return;
+            }
+            
+            isPlayerTurn = false;
+            setTimeout(opponentTurn, 700);
+        }
+        
+        function drawCard(hand) {
+            if (deck.length > 0 && hand.length < 7) hand.push(deck.pop());
+        }
+        
+        function calculateScore() {
+            playerScore = playerCaptured.length;
+            opponentScore = opponentCaptured.length;
+        }
+        
+        function opponentTurn() {
+            if (opponentHand.length === 0 && deck.length === 0) { endGame(); return; }
+            
+            const playedCard = opponentHand[0];
+            const matchingCards = findMatchingCards(playedCard);
+            
+            if (matchingCards.length > 0) {
+                opponentCaptured.push(playedCard, matchingCards[0]);
+                tableCards = tableCards.filter(c => c !== matchingCards[0]);
+                const additional = tableCards.filter(c => c.value === playedCard.value);
+                if (additional.length > 0) {
+                    opponentCaptured.push(...additional);
+                    tableCards = tableCards.filter(c => c.value !== playedCard.value);
+                }
+            } else {
+                tableCards.push(playedCard);
+            }
+            
+            opponentHand.splice(0, 1);
+            drawCard(opponentHand);
+            calculateScore();
+            renderGame();
+            
+            if (opponentHand.length === 0 && deck.length === 0) { endGame(); return; }
+            
+            isPlayerTurn = true;
+            if (playerHand.length === 0 && deck.length === 0) endGame();
+        }
+        
+        function showMessage(text) {
+            document.getElementById('messageText').textContent = text;
+            document.getElementById('message').classList.add('show');
+        }
+        
+        function closeMessage() {
+            document.getElementById('message').classList.remove('show');
+        }
+        
+        function endGame() {
+            calculateScore();
+            const winner = playerScore > opponentScore ? '🏆 나 (승!)' : 
+                          opponentScore > playerScore ? '💻 컴퓨터' : '무승부';
+            document.getElementById('finalScore').innerHTML = `
+                나: ${playerScore}점 | 컴퓨터: ${opponentScore}점<br><br>${winner}
+            `;
+            document.getElementById('gameOver').classList.add('show');
+        }
+        
+        function restartGame() {
+            createDeck(); dealCards();
+            playerCaptured = []; opponentCaptured = [];
+            playerScore = 0; opponentScore = 0;
+            isPlayerTurn = true; selectedCardIndex = null;
+            document.getElementById('gameOver').classList.remove('show');
+            renderGame();
+        }
+        
+        // Initialize
+        createDeck(); dealCards(); renderGame();
+        
+        // Register Service Worker
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('sw.js').catch(() => {});
+        }
+    </script>
+</body>
+</html>
